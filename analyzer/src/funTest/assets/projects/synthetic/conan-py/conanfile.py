@@ -75,10 +75,13 @@ cxx_14=False
 '''
 
     def source(self):
-        zip_name = "poco-%s-release.zip" % self.version
-        tools.download("https://github.com/pocoproject/poco/archive/%s" % zip_name, zip_name)
+        zip_name = f"poco-{self.version}-release.zip"
+        tools.download(
+            f"https://github.com/pocoproject/poco/archive/{zip_name}", zip_name
+        )
+
         tools.unzip(zip_name)
-        shutil.move("poco-poco-%s-release" % self.version, "poco")
+        shutil.move(f"poco-poco-{self.version}-release", "poco")
         os.unlink(zip_name)
         shutil.move("poco/CMakeLists.txt", "poco/CMakeListsOriginal.cmake")
         shutil.move("CMakeLists.txt", "poco/CMakeLists.txt")
@@ -100,23 +103,33 @@ cxx_14=False
 
         if self.options.enable_data_mysql:
             # self.requires.add("MySQLClient/6.1.6@hklabbers/stable")
-            raise Exception("MySQL not supported yet, open an issue here please: %s" % self.url)
+            raise Exception(
+                f"MySQL not supported yet, open an issue here please: {self.url}"
+            )
 
     def build(self):
         if self.settings.compiler == "Visual Studio" and self.options.shared:
             self.output.warn("Adding ws2_32 dependency...")
             replace = 'Net Util Foundation Crypt32.lib'
-            tools.replace_in_file("poco/NetSSL_Win/CMakeLists.txt", replace, replace + " ws2_32 ")
+            tools.replace_in_file(
+                "poco/NetSSL_Win/CMakeLists.txt", replace, f"{replace} ws2_32 "
+            )
+
 
             replace = 'Foundation ${OPENSSL_LIBRARIES}'
-            tools.replace_in_file("poco/Crypto/CMakeLists.txt", replace, replace + " ws2_32 Crypt32.lib")
+            tools.replace_in_file(
+                "poco/Crypto/CMakeLists.txt",
+                replace,
+                f"{replace} ws2_32 Crypt32.lib",
+            )
+
 
         cmake = CMake(self, parallel=None)  # Parallel crashes building
         for option_name in self.options.values.fields:
             activated = getattr(self.options, option_name)
             if option_name == "shared":
                 cmake.definitions["POCO_STATIC"] = "OFF" if activated else "ON"
-            elif not option_name == "fPIC":
+            elif option_name != "fPIC":
                 cmake.definitions[option_name.upper()] = "ON" if activated else "OFF"
 
         if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":  # MT or MTd
@@ -139,7 +152,7 @@ cxx_14=False
             packages.append("NetSSL_OpenSSL")
 
         for header in packages:
-            self.copy(pattern="*.h", dst="include", src="poco/%s/include" % header)
+            self.copy(pattern="*.h", dst="include", src=f"poco/{header}/include")
 
         # But for libs and dlls, we want to avoid intermediate folders
         self.copy(pattern="*.lib", dst="lib", src="build/lib", keep_path=False)
@@ -172,8 +185,8 @@ cxx_14=False
                 ("enable_redis", "PocoRedis")]
 
         suffix = str(self.settings.compiler.runtime).lower()  \
-                 if self.settings.compiler == "Visual Studio" and not self.options.shared \
-                 else ("d" if self.settings.build_type=="Debug" else "")
+                     if self.settings.compiler == "Visual Studio" and not self.options.shared \
+                     else ("d" if self.settings.build_type=="Debug" else "")
 
         for flag, lib in libs:
             if getattr(self.options, flag):
@@ -183,9 +196,9 @@ cxx_14=False
                 if self.settings.os != "Windows" and flag == "enable_netssl_win":
                     continue
 
-                self.cpp_info.libs.append("%s%s" % (lib, suffix))
+                self.cpp_info.libs.append(f"{lib}{suffix}")
 
-        self.cpp_info.libs.append("PocoFoundation%s" % suffix)
+        self.cpp_info.libs.append(f"PocoFoundation{suffix}")
 
         # in linux we need to link also with these libs
         if self.settings.os == "Linux":
